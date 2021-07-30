@@ -1,0 +1,35 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: athena-waf-check
+spec:
+  successfulJobsHistoryLimit: 1
+  # UTC
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: athena
+              image: xxx
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  secretKeyRef:
+                    name: aws-credentils
+                    key: aws-access-key
+                - name: AWS_SECRET_ACCESS_KEY
+                  secretKeyRef:
+                    name: aws-credentils
+                    key: aws-secret-key
+                - name: S3_BUCKET
+                  value: "xxx"
+                - name: S3_BUCKET
+                  value: "xxx"
+                - name: SLACK_WEBHOOK
+                  value: "xxx"
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "20m"

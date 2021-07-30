@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: query-statement
+data:
+  query.sql: |-
+    SELECT * FROM table
