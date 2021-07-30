@@ -1,9 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,9 +18,31 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-var query = ``
+var (
+	query          string
+	s3Bucket       string
+	slackWebhook   string
+	alertThreshold int
+	startTime      string
+	endTime        string
+)
+
+func init() {
+	s3Bucket = os.Getenv("S3_BUCKET")
+	slackWebhook = os.Getenv("SLACK_WEBHOOK")
+	alertThreshold, _ = strconv.Atoi(os.Getenv("ALERT_THRESHOLD"))
+
+	byteSlices, err := ioutil.ReadFile("./query.sql")
+
+	if err != nil {
+		log.Fatalf("failed to load sql file, %v", err)
+	}
+
+	query = string(byteSlices)
+}
 
 func main() {
+	// default config is loaded from AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatalf("failed to load SDK configuration, %v", err)
@@ -22,9 +50,12 @@ func main() {
 
 	client := athena.NewFromConfig(cfg)
 
+	startTime = time.Now().Add(-time.Duration(5) * time.Minute).Format("2006-01-02 15:04:05")
+	endTime = time.Now().Format("2006-01-02 15:04:05")
 	queryId, err := executeQuery(client, query)
 
 	if err != nil {
+		fmt.Println(query)
 		log.Fatalf("failed to execute query, %v", err)
 	}
 
@@ -67,7 +98,21 @@ func main() {
 		rs = append(rs, temp)
 	}
 
-	fmt.Println(len(rs))
+	log.Printf("%v - %v : %d requests were denied access", startTime, endTime, len(rs))
+
+	if len(rs) > alertThreshold && slackWebhook != "" {
+		postBody, _ := json.Marshal(map[string]string{
+			"text": fmt.Sprintf("%v - %v : %d requests were denied access", startTime, endTime, len(rs)),
+		})
+
+		responseBody := bytes.NewBuffer(postBody)
+
+		_, err = http.Post(slackWebhook, "application/json", responseBody)
+
+		if err != nil {
+			log.Fatalf("failed to send slack webhook, %v", err)
+		}
+	}
 }
 
 // getQueryResults stream result from Amazon S3
@@ -91,8 +136,6 @@ func getQueryExecutionState(c *athena.Client, queryId *string) (types.QueryExecu
 		QueryExecutionId: queryId,
 	}
 
-	// var status types.QueryExecutionState
-
 	resp, err := c.GetQueryExecution(context.TODO(), getExecutionInput)
 
 	if err != nil {
@@ -106,7 +149,7 @@ func getQueryExecutionState(c *athena.Client, queryId *string) (types.QueryExecu
 // executeQuery run the query and return query ID
 func executeQuery(c *athena.Client, query string) (*string, error) {
 	resultConf := types.ResultConfiguration{
-		OutputLocation: aws.String("s3://cyberbiz-athena-output"),
+		OutputLocation: aws.String(fmt.Sprintf("s3://%s", s3Bucket)),
 	}
 
 	executionInput := &athena.StartQueryExecutionInput{
