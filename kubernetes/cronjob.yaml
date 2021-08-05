@@ -1,11 +1,11 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: athena-waf-check
+  name: xxx
 spec:
   successfulJobsHistoryLimit: 1
   # UTC
-  schedule: "*/1 * * * *"
+  schedule: "*/5 * * * *"
   jobTemplate:
     spec:
       template:
@@ -13,23 +13,32 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: athena
-              image: xxx
+              image:  427794181662.dkr.ecr.ap-northeast-1.amazonaws.com/athena-client-go:v1
               env:
                 - name: AWS_ACCESS_KEY_ID
-                  secretKeyRef:
-                    name: aws-credentils
-                    key: aws-access-key
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: aws-access-key
                 - name: AWS_SECRET_ACCESS_KEY
-                  secretKeyRef:
-                    name: aws-credentils
-                    key: aws-secret-key
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: aws-secret-key
                 - name: S3_BUCKET
-                  value: "xxx"
-                - name: S3_BUCKET
-                  value: "xxx"
+                  value: cyberbiz-athena-output
                 - name: SLACK_WEBHOOK
-                  value: "xxx"
+                  value: xxx
+              volumeMounts:
+                - name: query
+                  mountPath: /app/query.sql
+                  subPath: query.sql
               resources:
                 requests:
-                  memory: "256Mi"
-                  cpu: "20m"
+                  memory: 128Mi
+                  cpu: 20m
+          volumes:
+            - name: query
+              configMap:
+                name: query
+
