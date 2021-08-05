@@ -4,4 +4,4 @@ metadata:
   name: query-statement
 data:
   query.sql: |-
-    SELECT * FROM table
+    SELECT * FROM xxx

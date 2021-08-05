@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -19,18 +18,16 @@ import (
 )
 
 var (
-	query          string
-	s3Bucket       string
-	slackWebhook   string
-	alertThreshold int
-	startTime      string
-	endTime        string
+	query        string
+	s3Bucket     string
+	slackWebhook string
+	startTime    string
+	endTime      string
 )
 
 func init() {
 	s3Bucket = os.Getenv("S3_BUCKET")
 	slackWebhook = os.Getenv("SLACK_WEBHOOK")
-	alertThreshold, _ = strconv.Atoi(os.Getenv("ALERT_THRESHOLD"))
 
 	byteSlices, err := ioutil.ReadFile("./query.sql")
 
@@ -100,14 +97,14 @@ func main() {
 
 	log.Printf("%v - %v : %d requests were denied access", startTime, endTime, len(rs))
 
-	if len(rs) > alertThreshold && slackWebhook != "" {
+	for _, el := range rs {
 		postBody, _ := json.Marshal(map[string]string{
-			"text": fmt.Sprintf("%v - %v : %d requests were denied access", startTime, endTime, len(rs)),
+			"text": fmt.Sprintf("%v", el),
 		})
 
 		responseBody := bytes.NewBuffer(postBody)
 
-		_, err = http.Post(slackWebhook, "application/json", responseBody)
+		_, err := http.Post(slackWebhook, "application/json", responseBody)
 
 		if err != nil {
 			log.Fatalf("failed to send slack webhook, %v", err)
